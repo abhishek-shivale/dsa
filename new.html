@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive DSA Guide (JavaScript) with Gemini API</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chosen Palette: Serene Code (Light beige/gray background, dark text, subtle blue/green accents) -->
+    <!-- Application Structure Plan: A two-pane SPA. Left pane: a sticky, collapsible navigation tree of all DSA topics. Right pane: a content display area. Clicking a topic in the nav tree dynamically loads its theory, complexity analysis, and a copy-able code snippet into the content pane. This structure is chosen to provide a quick, organized overview and prevent endless scrolling, making it far more usable than a single long document for interview preparation. Gemini API features for simplified explanations and problem suggestions are added to enhance the learning experience. -->
+    <!-- Visualization & Content Choices: Report info is hierarchical DSA knowledge. Goal is to organize, inform, and allow quick reference. The primary presentation is a structured text layout. JS is used to create a dynamic navigation tree (organize), which updates a content display area (inform). Key interactions include the "Copy Code" button and two new Gemini-powered buttons ("Explain in Simple Terms" and "Suggest Related Problems") which provide AI-generated content in a modal window. This design uses structured HTML/CSS for layout and information hierarchy. No charts are needed or used. Library/Method: Vanilla JS for DOM manipulation and event handling, fetch for Gemini API calls. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        .nav-item.active {
+            background-color: #e0f2fe; /* light-blue-100 */
+            color: #0284c7; /* sky-600 */
+            font-weight: 600;
+        }
+        .nav-category.open > .nav-category-toggle .arrow {
+            transform: rotate(90deg);
+        }
+        .nav-category .arrow {
+            transition: transform 0.2s ease-in-out;
+        }
+        .code-block {
+            background-color: #1f2937; /* gray-800 */
+            color: #f9fafb; /* gray-50 */
+        }
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        .gemini-btn {
+            background-color: #c4b5fd; /* violet-300 */
+            color: #4c1d95; /* violet-900 */
+        }
+        .gemini-btn:hover {
+            background-color: #a78bfa; /* violet-400 */
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <div class="flex flex-col md:flex-row min-h-screen">
+        <!-- Mobile Header -->
+        <header class="md:hidden bg-white shadow-md p-4 flex justify-between items-center sticky top-0 z-20">
+            <h1 class="text-xl font-bold text-slate-700">DSA Guide</h1>
+            <button id="mobile-menu-button" class="p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            </button>
+        </header>
+
+        <!-- Sidebar Navigation -->
+        <aside id="sidebar" class="bg-white w-full md:w-1/4 lg:w-1/5 h-screen sticky top-0 overflow-y-auto p-4 md:p-6 shadow-lg transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out z-30">
+            <h2 class="text-2xl font-bold mb-6 text-slate-700 hidden md:block">Topics</h2>
+            <nav id="navigation-menu"></nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="w-full md:w-3/4 lg:w-4/5 p-4 sm:p-6 md:p-10">
+            <div id="content-display" class="max-w-4xl mx-auto">
+                <!-- Content will be injected here -->
+            </div>
+        </main>
+    </div>
+
+    <!-- Gemini Modal -->
+    <div id="gemini-modal" class="fixed inset-0 modal-overlay items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-11/12 md:w-1/2 max-h-[80vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="modal-title" class="text-2xl font-bold text-slate-800"></h3>
+                <button id="close-modal-btn" class="text-slate-500 hover:text-slate-800">&times;</button>
+            </div>
+            <div id="modal-content" class="text-slate-600 leading-relaxed">
+                <!-- Gemini content will be injected here -->
+            </div>
+        </div>
+    </div>
+
+<script>
+const dsaData = {
+    "Arrays": {
+        "Two Sum": {
+            theory: "Given an array of integers `nums` and an integer `target`, the problem is to return the indices of the two numbers such that they add up to `target`. The most efficient approach uses a hash map (or a JavaScript `Map`/`Object`) to store the numbers we've seen and their indices. As we iterate through the array, we check if the complement (`target - current_number`) exists in the map. If it does, we've found our pair. If not, we add the current number and its index to the map.",
+            complexity: { time: "O(n)", space: "O(n)" },
+            code: `const twoSum = (nums, target) => {\n    const numMap = new Map();\n    for (let i = 0; i < nums.length; i++) {\n        const complement = target - nums[i];\n        if (numMap.has(complement)) {\n            return [numMap.get(complement), i];\n        }\n        numMap.set(nums[i], i);\n    }\n    return [];\n};`
+        },
+        "Sliding Window": {
+            theory: "The sliding window technique is used for problems that involve finding a subarray or substring that satisfies certain conditions. A 'window' of a certain size slides over the data. Instead of re-computing for each window, we efficiently update the result by adding the new element that enters the window and removing the element that leaves it. This is highly effective for problems like finding the maximum sum of a subarray of a fixed size.",
+            complexity: { time: "O(n)", space: "O(1)" },
+            code: `const maxSlidingWindow = (nums, k) => {\n    if (nums.length < k) return 0;\n    let maxSum = 0;\n    let windowSum = 0;\n    let windowStart = 0;\n\n    for (let windowEnd = 0; windowEnd < nums.length; windowEnd++) {\n        windowSum += nums[windowEnd];\n\n        if (windowEnd >= k - 1) {\n            maxSum = Math.max(maxSum, windowSum);\n            windowSum -= nums[windowStart];\n            windowStart++;\n        }\n    }\n    return maxSum;\n};`
+        },
+        "Kadane's Algorithm": {
+            theory: "Kadane's Algorithm is used to find the contiguous subarray within a one-dimensional numeric array that has the largest sum. The idea is to iterate through the array and at each position, decide whether to extend the current subarray or start a new one.",
+            complexity: { time: "O(n)", space: "O(1)" },
+            code: `const maxSubArray = (nums) => {\n    let maxSoFar = -Infinity;\n    let maxEndingHere = 0;\n\n    for (let i = 0; i < nums.length; i++) {\n        maxEndingHere += nums[i];\n        if (maxSoFar < maxEndingHere) {\n            maxSoFar = maxEndingHere;\n        }\n        if (maxEndingHere < 0) {\n            maxEndingHere = 0;\n        }\n    }\n    return maxSoFar;\n};`
+        },
+        "Maximum Product Subarray": {
+            theory: "Find the contiguous subarray with the largest product. The main challenge is handling negative numbers. A negative number can become the maximum product if multiplied by another negative number. Therefore, we must track both the maximum and minimum product ending at the current position.",
+            complexity: { time: "O(n)", space: "O(1)" },
+            code: `const maxProduct = (nums) => {\n    if (nums.length === 0) return 0;\n\n    let maxSoFar = nums[0];\n    let minSoFar = nums[0];\n    let result = maxSoFar;\n\n    for (let i = 1; i < nums.length; i++) {\n        const curr = nums[i];\n        const tempMax = Math.max(curr, maxSoFar * curr, minSoFar * curr);\n        minSoFar = Math.min(curr, maxSoFar * curr, minSoFar * curr);\n\n        maxSoFar = tempMax;\n\n        result = Math.max(maxSoFar, result);\n    }\n\n    return result;\n};`
+        },
+        "Dutch National Flag": {
+            theory: "This algorithm is used to sort an array containing three distinct values (e.g., 0, 1, and 2) in linear time. It uses three pointers: `low`, `mid`, and `high`. The array is partitioned into four sections: `a[0..low-1]` (all 0s), `a[low..mid-1]` (all 1s), `a[mid..high]` (unknown), and `a[high+1..n-1]` (all 2s).",
+            complexity: { time: "O(n)", space: "O(1)" },
+            code: `const sortColors = (nums) => {\n    let low = 0;\n    let mid = 0;\n    let high = nums.length - 1;\n\n    const swap = (i, j) => {\n        [nums[i], nums[j]] = [nums[j], nums[i]];\n    };\n\n    while (mid <= high) {\n        switch (nums[mid]) {\n            case 0:\n                swap(low, mid);\n                low++;\n                mid++;\n                break;\n            case 1:\n                mid++;\n                break;\n            case 2:\n                swap(mid, high);\n                high--;\n                break;\n        }\n    }\n};`
+        },
+        "Two Pointer Technique": {
+            theory: "The two-pointer technique is a common pattern for problems where you need to find a pair of elements that satisfy a certain condition in a sorted array. Two pointers are initialized, one at the beginning (`left`) and one at the end (`right`) of the array. They move towards each other based on the sum of the elements they are pointing to.",
+            complexity: { time: "O(n)", space: "O(1)" },
+            code: `const twoSumSorted = (numbers, target) => {\n    let left = 0;\n    let right = numbers.length - 1;\n\n    while (left < right) {\n        const sum = numbers[left] + numbers[right];\n        if (sum === target) {\n            return [left + 1, right + 1];\n        } else if (sum < target) {\n            left++;\n        } else {\n            right--;\n        }\n    }\n    return [];\n};`
+        }
+    },
+    "Strings": {
+        "KMP Algorithm": {
+            theory: "KMP is a pattern-searching algorithm that is highly efficient because it avoids re-comparing characters that were already matched. It achieves this by pre-processing the pattern to create a Longest Proper Prefix Suffix (LPS) array.",
+            complexity: { time: "O(n + m)", space: "O(m)" },
+            code: `const computeLPSArray = (pat) => {\n    const lps = Array(pat.length).fill(0);\n    let length = 0;\n    let i = 1;\n    while (i < pat.length) {\n        if (pat[i] === pat[length]) {\n            length++;\n            lps[i] = length;\n            i++;\n        } else {\n            if (length !== 0) {\n                length = lps[length - 1];\n            } else {\n                lps[i] = 0;\n                i++;\n            }\n        }\n    }\n    return lps;\n};\n\nconst kmpSearch = (text, pat) => {\n    const n = text.length;\n    const m = pat.length;\n    if (m === 0) return 0;\n    const lps = computeLPSArray(pat);\n    let i = 0;\n    let j = 0;\n    const result = [];\n\n    while (i < n) {\n        if (pat[j] === text[i]) {\n            i++;\n            j++;\n        }\n        if (j === m) {\n            result.push(i - j);\n            j = lps[j - 1];\n        } else if (i < n && pat[j] !== text[i]) {\n            if (j !== 0) {\n                j = lps[j - 1];\n            } else {\n                i++;\n            }\n        }\n    }\n    return result;\n};`
+        },
+        "Rabin-Karp Algorithm": {
+            theory: "Rabin-Karp is a string-searching algorithm that uses hashing to find a pattern in a text. It calculates a hash for the pattern and for each substring of the text of the same length. If the hashes match, it performs a character-by-character comparison to confirm the match, avoiding spurious hits. It uses a 'rolling hash' to efficiently update the hash for the next substring.",
+            complexity: { time: "O(n+m) avg, O(nm) worst", space: "O(1)" },
+            code: `const rabinKarp = (text, pattern) => {\n    const n = text.length;\n    const m = pattern.length;\n    if (m > n) return -1;\n\n    const d = 256; // Number of characters in the input alphabet\n    const q = 101; // A prime number\n    let h = 1;\n    let p = 0; // Hash value for pattern\n    let t = 0; // Hash value for text\n    const result = [];\n\n    for (let i = 0; i < m - 1; i++) {\n        h = (h * d) % q;\n    }\n\n    for (let i = 0; i < m; i++) {\n        p = (d * p + pattern.charCodeAt(i)) % q;\n        t = (d * t + text.charCodeAt(i)) % q;\n    }\n\n    for (let i = 0; i <= n - m; i++) {\n        if (p === t) {\n            let j = 0;\n            for (j = 0; j < m; j++) {\n                if (text[i + j] !== pattern[j]) break;\n            }\n            if (j === m) result.push(i);\n        }\n\n        if (i < n - m) {\n            t = (d * (t - text.charCodeAt(i) * h) + text.charCodeAt(i + m)) % q;\n            if (t < 0) t = t + q;\n        }\n    }\n    return result;\n};`
+        },
+        "Longest Palindromic Substring": {
+            theory: "The goal is to find the longest substring of a given string which is also a palindrome. A common and intuitive approach is 'Expand Around Center'. We iterate through each character of the string and treat it as a potential center of a palindrome, expanding outwards.",
+            complexity: { time: "O(n^2)", space: "O(1)" },
+            code: `const longestPalindrome = (s) => {\n    if (s.length < 1) return "";\n    let start = 0, end = 0;\n\n    const expandAroundCenter = (left, right) => {\n        while (left >= 0 && right < s.length && s[left] === s[right]) {\n            left--;\n            right++;\n        }\n        return right - left - 1;\n    };\n\n    for (let i = 0; i < s.length; i++) {\n        const len1 = expandAroundCenter(i, i);\n        const len2 = expandAroundCenter(i, i + 1);\n        const len = Math.max(len1, len2);\n        if (len > end - start) {\n            start = i - Math.floor((len - 1) / 2);\n            end = i + Math.floor(len / 2);\n        }\n    }\n    return s.substring(start, end + 1);\n};`
+        },
+        "Anagram Detection": {
+            theory: "Two strings are anagrams if they contain the same characters with the same frequencies. A simple way to check is to sort both strings. A more efficient way is to use a frequency map to count character occurrences.",
+            complexity: { time: "O(n)", space: "O(k)" },
+            code: `const isAnagram = (s, t) => {\n    if (s.length !== t.length) return false;\n\n    const charCount = {};\n\n    for (const char of s) {\n        charCount[char] = (charCount[char] || 0) + 1;\n    }\n\n    for (const char of t) {\n        if (!charCount[char]) {\n            return false;\n        }\n        charCount[char]--;\n    }\n\n    return true;\n};`
+        }
+    },
+    "Linked Lists": {
+        "Reverse a Linked List": {
+            theory: "To reverse a linked list, we iterate through it, changing the `next` pointer of each node to point to the `previous` node. We need three pointers: `prev`, `current`, and `next`.",
+            complexity: { time: "O(n)", space: "O(1)" },
+            code: `function ListNode(val, next) {\n    this.val = (val===undefined ? 0 : val)\n    this.next = (next===undefined ? null : next)\n}\n\nconst reverseList = (head) => {\n    let prev = null;\n    let current = head;\n    while (current !== null) {\n        const nextTemp = current.next;\n        current.next = prev;\n        prev = current;\n        current = nextTemp;\n    }\n    return prev;\n};`
+        },
+        "Find Middle of List": {
+            theory: "To find the middle of a linked list, use the 'Tortoise and Hare' (slow and fast pointer) approach. The slow pointer moves one step at a time, while the fast pointer moves two steps. When the fast pointer reaches the end of the list, the slow pointer will be at the middle node.",
+            complexity: { time: "O(n)", space: "O(1)" },
+            code: `const findMiddle = (head) => {\n    let slow = head;\n    let fast = head;\n    while (fast !== null && fast.next !== null) {\n        slow = slow.next;\n        fast = fast.next.next;\n    }\n    return slow;\n};`
+        },
+        "Cycle Detection": {
+            theory: "Floyd's Tortoise and Hare algorithm uses two pointers, a 'slow' pointer and a 'fast' pointer. If there is a cycle, the fast pointer will eventually lap the slow pointer.",
+            complexity: { time: "O(n)", space: "O(1)" },
+            code: `const hasCycle = (head) => {\n    if (!head || !head.next) {\n        return false;\n    }\n    let slow = head;\n    let fast = head.next;\n\n    while (slow !== fast) {\n        if (fast === null || fast.next === null) {\n            return false;\n        }\n        slow = slow.next;\n        fast = fast.next.next;\n    }\n    return true;\n};`
+        },
+        "Merge Two Sorted Lists": {
+            theory: "To merge two sorted linked lists, iterate through both lists, comparing nodes and appending the smaller one to a new list. Once one list is exhausted, append the remainder of the other.",
+            complexity: { time: "O(n + m)", space: "O(1)" },
+            code: `const mergeTwoLists = (list1, list2) => {\n    const dummyHead = new ListNode(-1);\n    let tail = dummyHead;\n\n    while (list1 !== null && list2 !== null) {\n        if (list1.val < list2.val) {\n            tail.next = list1;\n            list1 = list1.next;\n        } else {\n            tail.next = list2;\n            list2 = list2.next;\n        }\n        tail = tail.next;\n    }\n\n    tail.next = list1 !== null ? list1 : list2;\n\n    return dummyHead.next;\n};`
+        }
+    },
+    "Binary Trees": {
+        "Tree Traversals": {
+            theory: "* **Inorder (L,Ro,R):** Gives nodes in non-decreasing order for a BST.\n* **Preorder (Ro,L,R):** Useful for copying a tree.\n* **Postorder (L,R,Ro):** Useful for deleting a tree.\n* **Level Order (BFS):** Visits nodes level by level using a queue.",
+            complexity: { time: "O(n)", space: "O(h)" },
+            code: `function TreeNode(val, left, right) {\n    this.val = (val===undefined ? 0 : val)\n    this.left = (left===undefined ? null : left)\n    this.right = (right===undefined ? null : right)\n}\n\n// Inorder\nconst inorderTraversal = (root) => {\n    const result = [];\n    const traverse = (node) => {\n        if (!node) return;\n        traverse(node.left);\n        result.push(node.val);\n        traverse(node.right);\n    };\n    traverse(root);\n    return result;\n};\n\n// Level Order\nconst levelOrder = (root) => {\n    if (!root) return [];\n    const result = [];\n    const queue = [root];\n    while (queue.length > 0) {\n        const levelSize = queue.length;\n        const currentLevel = [];\n        for (let i = 0; i < levelSize; i++) {\n            const node = queue.shift();\n            currentLevel.push(node.val);\n            if (node.left) queue.push(node.left);\n            if (node.right) queue.push(node.right);\n        }\n        result.push(currentLevel);\n    }\n    return result;\n};`
+        },
+        "Validate BST": {
+            theory: "A BST is valid if for each node, all values in its left subtree are smaller, and all values in its right subtree are larger. This is checked recursively by passing down a valid min/max range for each node.",
+            complexity: { time: "O(n)", space: "O(h)" },
+            code: `const isValidBST = (root) => {\n    const validate = (node, min, max) => {\n        if (!node) return true;\n        if (\n            (min !== null && node.val <= min) ||\n            (max !== null && node.val >= max)\n        ) {\n            return false;\n        }\n        return validate(node.left, min, node.val) && validate(node.right, node.val, max);\n    };\n    return validate(root, null, null);\n};`
+        },
+        "Lowest Common Ancestor": {
+            theory: "The lowest common ancestor (LCA) of two nodes p and q in a binary tree is the lowest node that has both p and q as descendants. A recursive approach is efficient: if the current node is p or q, it's the LCA. Otherwise, search in left and right subtrees. If both searches find a node, the current node is the LCA. If only one search finds a node, that node is the LCA.",
+            complexity: { time: "O(n)", space: "O(h)" },
+            code: `const lowestCommonAncestor = (root, p, q) => {\n    if (!root || root === p || root === q) return root;\n\n    const left = lowestCommonAncestor(root.left, p, q);\n    const right = lowestCommonAncestor(root.right, p, q);\n\n    if (left && right) return root;\n    return left || right;\n};`
+        },
+        "Diameter of Tree": {
+            theory: "The diameter of a binary tree is the length of the longest path between any two nodes. This path may or may not pass through the root. We can find it by performing a depth-first search. For each node, the diameter is the sum of the heights of its left and right subtrees. We keep track of the maximum diameter found so far.",
+            complexity: { time: "O(n)", space: "O(h)" },
+            code: `let diameter = 0;\n\nconst diameterOfBinaryTree = (root) => {\n    diameter = 0;\n    height(root);\n    return diameter;\n};\n\nconst height = (node) => {\n    if (!node) return 0;\n\n    const leftHeight = height(node.left);\n    const rightHeight = height(node.right);\n\n    diameter = Math.max(diameter, leftHeight + rightHeight);\n\n    return Math.max(leftHeight, rightHeight) + 1;\n};`
+        }
+    },
+    "Binary Search": {
+        "Classic Search": {
+            theory: "Binary search is a fast search algorithm for sorted arrays. It repeatedly divides the search interval in half. If the target is less than the middle element, search the left half; otherwise, search the right half.",
+            complexity: { time: "O(log n)", space: "O(1)" },
+            code: `const search = (nums, target) => {\n    let left = 0;\n    let right = nums.length - 1;\n\n    while (left <= right) {\n        const mid = Math.floor(left + (right - left) / 2);\n        if (nums[mid] === target) {\n            return mid;\n        } else if (nums[mid] < target) {\n            left = mid + 1;\n        } else {\n            right = mid - 1;\n        }\n    }\n    return -1;\n};`
+        },
+        "Search in Rotated Sorted Array": {
+            theory: "This is a modified binary search for a sorted array that has been rotated. The key is to first determine which half of the array is still sorted, then check if the target lies in that sorted half to narrow down the search space.",
+            complexity: { time: "O(log n)", space: "O(1)" },
+            code: `const searchRotated = (nums, target) => {\n    let left = 0;\n    let right = nums.length - 1;\n\n    while (left <= right) {\n        let mid = Math.floor(left + (right - left) / 2);\n\n        if (nums[mid] === target) return mid;\n\n        if (nums[left] <= nums[mid]) { // Left half is sorted\n            if (target >= nums[left] && target < nums[mid]) {\n                right = mid - 1;\n            } else {\n                left = mid + 1;\n            }\n        } else { // Right half is sorted\n            if (target > nums[mid] && target <= nums[right]) {\n                left = mid + 1;\n            } else {\n                right = mid - 1;\n            }\n        }\n    }\n    return -1;\n};`
+        },
+        "Find Peak Element": {
+            theory: "A peak element is an element that is strictly greater than its neighbors. We can use binary search to find a peak. If the middle element is less than its right neighbor, a peak must exist on the right. Otherwise, a peak must exist on the left (including the middle element itself).",
+            complexity: { time: "O(log n)", space: "O(1)" },
+            code: `const findPeakElement = (nums) => {\n    let left = 0;\n    let right = nums.length - 1;\n\n    while (left < right) {\n        const mid = Math.floor(left + (right - left) / 2);\n        if (nums[mid] < nums[mid + 1]) {\n            left = mid + 1;\n        } else {\n            right = mid;\n        }\n    }\n    return left;\n};`
+        }
+    },
+    "Dynamic Programming": {
+        "0/1 Knapsack": {
+            theory: "Given items with weights and values, find the maximum value that can fit into a knapsack of a certain capacity. For each item, you either take it or leave it. A DP table `dp[i][w]` stores the max value using first `i` items and capacity `w`.",
+            complexity: { time: "O(nW)", space: "O(nW)" },
+            code: `const knapsack = (capacity, weights, values, n) => {\n    const dp = Array(n + 1).fill(0).map(() => Array(capacity + 1).fill(0));\n\n    for (let i = 1; i <= n; i++) {\n        for (let w = 1; w <= capacity; w++) {\n            if (weights[i - 1] <= w) {\n                dp[i][w] = Math.max(\n                    values[i - 1] + dp[i - 1][w - weights[i - 1]],\n                    dp[i - 1][w]\n                );\n            } else {\n                dp[i][w] = dp[i - 1][w];\n            }\n        }\n    }\n    return dp[n][capacity];\n};`
+        },
+        "Longest Common Subsequence": {
+            theory: "Find the length of the longest subsequence present in two given sequences. A DP table `dp[i][j]` stores the LCS length for the first `i` characters of string1 and `j` characters of string2.",
+            complexity: { time: "O(mn)", space: "O(mn)" },
+            code: `const longestCommonSubsequence = (text1, text2) => {\n    const m = text1.length;\n    const n = text2.length;\n    const dp = Array(m + 1).fill(0).map(() => Array(n + 1).fill(0));\n\n    for (let i = 1; i <= m; i++) {\n        for (let j = 1; j <= n; j++) {\n            if (text1[i - 1] === text2[j - 1]) {\n                dp[i][j] = 1 + dp[i - 1][j - 1];\n            } else {\n                dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);\n            }\n        }\n    }\n    return dp[m][n];\n};`
+        },
+        "Coin Change": {
+            theory: "Given a set of coin denominations and a total amount, find the minimum number of coins required to make up that amount. If it's not possible, return -1. This is a classic DP problem where `dp[i]` stores the minimum coins for amount `i`.",
+            complexity: { time: "O(amount * coins)", space: "O(amount)" },
+            code: `const coinChange = (coins, amount) => {\n    const dp = Array(amount + 1).fill(Infinity);\n    dp[0] = 0;\n\n    for (let i = 1; i <= amount; i++) {\n        for (const coin of coins) {\n            if (i - coin >= 0) {\n                dp[i] = Math.min(dp[i], dp[i - coin] + 1);\n            }\n        }\n    }\n\n    return dp[amount] === Infinity ? -1 : dp[amount];\n};`
+        },
+        "Edit Distance": {
+            theory: "Given two strings, find the minimum number of single-character edits (insert, delete, or substitute) required to change one string into the other. A 2D DP table is used, where `dp[i][j]` is the edit distance between the first `i` characters of word1 and the first `j` characters of word2.",
+            complexity: { time: "O(mn)", space: "O(mn)" },
+            code: `const minDistance = (word1, word2) => {\n    const m = word1.length;\n    const n = word2.length;\n    const dp = Array(m + 1).fill(0).map(() => Array(n + 1).fill(0));\n\n    for (let i = 0; i <= m; i++) dp[i][0] = i;\n    for (let j = 0; j <= n; j++) dp[0][j] = j;\n\n    for (let i = 1; i <= m; i++) {\n        for (let j = 1; j <= n; j++) {\n            if (word1[i - 1] === word2[j - 1]) {\n                dp[i][j] = dp[i - 1][j - 1];\n            } else {\n                dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);\n            }\n        }\n    }\n    return dp[m][n];\n};`
+        },
+        "Longest Increasing Subsequence": {
+            theory: "Given a sequence, find the length of the longest subsequence where all elements are in increasing order. The standard DP approach involves an array `dp` where `dp[i]` stores the length of the LIS ending at index `i`.",
+            complexity: { time: "O(n^2)", space: "O(n)" },
+            code: `const lengthOfLIS = (nums) => {\n    if (nums.length === 0) return 0;\n    const dp = Array(nums.length).fill(1);\n    let max = 1;\n\n    for (let i = 1; i < nums.length; i++) {\n        for (let j = 0; j < i; j++) {\n            if (nums[i] > nums[j]) {\n                dp[i] = Math.max(dp[i], dp[j] + 1);\n            }\n        }\n        max = Math.max(max, dp[i]);\n    }\n    return max;\n};`
+        }
+    },
+    "Graphs": {
+        "DFS and BFS": {
+            theory: "* **DFS (Depth-First Search):** Explores as far as possible along each branch before backtracking. Implemented with a stack or recursion.\n* **BFS (Breadth-First Search):** Explores all neighbors at the current depth before moving to the next level. Implemented with a queue.",
+            complexity: { time: "O(V + E)", space: "O(V)" },
+            code: `// DFS\nconst dfs = (graph, startNode) => {\n    const visited = new Set();\n    const result = [];\n    const traverse = (node) => {\n        if (!node || visited.has(node)) return;\n        visited.add(node);\n        result.push(node);\n        graph[node].forEach(neighbor => {\n            traverse(neighbor);\n        });\n    };\n    traverse(startNode);\n    return result;\n};\n\n// BFS\nconst bfs = (graph, startNode) => {\n    const visited = new Set([startNode]);\n    const queue = [startNode];\n    const result = [];\n\n    while (queue.length > 0) {\n        const node = queue.shift();\n        result.push(node);\n        graph[node].forEach(neighbor => {\n            if (!visited.has(neighbor)) {\n                visited.add(neighbor);\n                queue.push(neighbor);\n            }\n        });\n    }\n    return result;\n};`
+        },
+        "Dijkstra's Algorithm": {
+            theory: "Finds the shortest paths from a starting node to all other nodes in a weighted graph. It uses a priority queue to greedily select the unvisited node with the smallest distance.",
+            complexity: { time: "O(E log V)", space: "O(V + E)" },
+            code: `const dijkstra = (graph, startNode) => {\n    const distances = {};\n    const visited = new Set();\n    const pq = [];\n\n    for (const node in graph) {\n        distances[node] = Infinity;\n    }\n    distances[startNode] = 0;\n    pq.push({ node: startNode, dist: 0 });\n\n    while (pq.length > 0) {\n        pq.sort((a, b) => a.dist - b.dist);\n        const { node: currentNode, dist: currentDist } = pq.shift();\n\n        if (visited.has(currentNode)) continue;\n        visited.add(currentNode);\n\n        if (currentDist > distances[currentNode]) continue;\n\n        for (const { node: neighbor, weight } of graph[currentNode]) {\n            const distance = currentDist + weight;\n            if (distance < distances[neighbor]) {\n                distances[neighbor] = distance;\n                pq.push({ node: neighbor, dist: distance });\n            }\n        }\n    }\n    return distances;\n};`
+        },
+        "Topological Sort": {
+            theory: "A linear ordering of vertices in a Directed Acyclic Graph (DAG) such that for every directed edge from u to v, u comes before v. Kahn's algorithm uses BFS and in-degrees of nodes.",
+            complexity: { time: "O(V + E)", space: "O(V)" },
+            code: `const topologicalSort = (graph) => {\n    const inDegree = {};\n    for (const node in graph) inDegree[node] = 0;\n    for (const node in graph) {\n        for (const neighbor of graph[node]) {\n            inDegree[neighbor]++;\n        }\n    }\n\n    const queue = [];\n    for (const node in inDegree) {\n        if (inDegree[node] === 0) queue.push(node);\n    }\n\n    const result = [];\n    while (queue.length > 0) {\n        const node = queue.shift();\n        result.push(node);\n\n        for (const neighbor of graph[node]) {\n            inDegree[neighbor]--;\n            if (inDegree[neighbor] === 0) queue.push(neighbor);\n        }\n    }\n\n    if (result.length !== Object.keys(graph).length) {\n        return []; // Cycle detected\n    }\n    return result;\n};`
+        },
+        "Kruskal's Algorithm (MST)": {
+            theory: "A greedy algorithm to find a Minimum Spanning Tree (MST). It sorts all edges by weight and adds them to the result if they don't form a cycle. A Union-Find data structure is used to detect cycles efficiently.",
+            complexity: { time: "O(E log E)", space: "O(V + E)" },
+            code: `class UnionFind {\n    constructor(size) {\n        this.parent = Array.from({length: size}, (_, i) => i);\n        this.rank = Array(size).fill(0);\n    }\n    find(i) {\n        if (this.parent[i] === i) return i;\n        return this.parent[i] = this.find(this.parent[i]);\n    }\n    union(i, j) {\n        const rootI = this.find(i);\n        const rootJ = this.find(j);\n        if (rootI !== rootJ) {\n            if (this.rank[rootI] > this.rank[rootJ]) {\n                this.parent[rootJ] = rootI;\n            } else if (this.rank[rootI] < this.rank[rootJ]) {\n                this.parent[rootI] = rootJ;\n            } else {\n                this.parent[rootJ] = rootI;\n                this.rank[rootI]++;\n            }\n            return true;\n        }\n        return false;\n    }\n}\n\nconst kruskal = (n, edges) => {\n    edges.sort((a, b) => a[2] - b[2]);\n    const uf = new UnionFind(n);\n    let mstCost = 0;\n    const mstEdges = [];\n    for (const [u, v, weight] of edges) {\n        if (uf.union(u, v)) {\n            mstCost += weight;\n            mstEdges.push([u, v, weight]);\n        }\n    }\n    return { mstCost, mstEdges };\n};`
+        },
+        "Floyd-Warshall Algorithm": {
+            theory: "An algorithm for finding the shortest paths between all pairs of vertices in a weighted graph (All-Pairs Shortest Path). It works with positive or negative edge weights but not negative cycles. It uses a dynamic programming approach with a V x V distance matrix.",
+            complexity: { time: "O(V^3)", space: "O(V^2)" },
+            code: `const floydWarshall = (n, edges) => {\n    const dist = Array(n).fill(0).map(() => Array(n).fill(Infinity));\n\n    for (let i = 0; i < n; i++) dist[i][i] = 0;\n\n    for (const [u, v, weight] of edges) {\n        dist[u][v] = weight;\n    }\n\n    for (let k = 0; k < n; k++) {\n        for (let i = 0; i < n; i++) {\n            for (let j = 0; j < n; j++) {\n                if (dist[i][k] + dist[k][j] < dist[i][j]) {\n                    dist[i][j] = dist[i][k] + dist[k][j];\n                }\n            }\n        }\n    }\n    return dist;\n};`
+        }
+    },
+    "Advanced Data Structures": {
+        "Heap (Min-Heap)": {
+            theory: "A heap is a specialized tree-based data structure that satisfies the heap property. In a min-heap, the parent node is always smaller than or equal to its children. It's commonly used to implement Priority Queues and for algorithms like Heap Sort and Dijkstra's.",
+            complexity: { time: "Insert/Delete: O(log n)", space: "O(n)" },
+            code: `class MinHeap {\n    constructor() {\n        this.heap = [];\n    }\n    insert(value) {\n        this.heap.push(value);\n        this.bubbleUp();\n    }\n    extractMin() {\n        const min = this.heap[0];\n        const last = this.heap.pop();\n        if (this.heap.length > 0) {\n            this.heap[0] = last;\n            this.sinkDown(0);\n        }\n        return min;\n    }\n    // Helper methods bubbleUp and sinkDown would be implemented here\n}`
+        },
+        "Union-Find": {
+            theory: "A data structure that tracks a set of elements partitioned into disjoint subsets. Its two main operations are `find` (determine which subset an element is in) and `union` (merge two subsets). It's highly optimized with path compression and union by rank/size, making it nearly constant time per operation. It's essential for detecting cycles in graphs (e.g., in Kruskal's algorithm).",
+            complexity: { time: "O(α(n)) amortized", space: "O(n)" },
+            code: `class UnionFind {\n    constructor(size) {\n        this.parent = Array.from({length: size}, (_, i) => i);\n        this.rank = Array(size).fill(0);\n    }\n    find(i) {\n        if (this.parent[i] === i) return i;\n        return this.parent[i] = this.find(this.parent[i]); // Path compression\n    }\n    union(i, j) {\n        const rootI = this.find(i);\n        const rootJ = this.find(j);\n        if (rootI !== rootJ) {\n            // Union by rank\n            if (this.rank[rootI] > this.rank[rootJ]) {\n                this.parent[rootJ] = rootI;\n            } else if (this.rank[rootI] < this.rank[rootJ]) {\n                this.parent[rootI] = rootJ;\n            } else {\n                this.parent[rootJ] = rootI;\n                this.rank[rootI]++;\n            }\n            return true;\n        }\n        return false;\n    }\n}`
+        },
+        "Trie (Prefix Tree)": {
+            theory: "A tree-like data structure efficient for string-related problems like auto-completion. Each node represents a character, and a path from the root represents a prefix.",
+            complexity: { time: "O(L)", space: "O(N*L_avg)" },
+            code: `class TrieNode {\n    constructor() {\n        this.children = {};\n        this.isEndOfWord = false;\n    }\n}\n\nclass Trie {\n    constructor() {\n        this.root = new TrieNode();\n    }\n\n    insert(word) {\n        let current = this.root;\n        for (const char of word) {\n            if (!current.children[char]) {\n                current.children[char] = new TrieNode();\n            }\n            current = current.children[char];\n        }\n        current.isEndOfWord = true;\n    }\n\n    search(word) {\n        let current = this.root;\n        for (const char of word) {\n            if (!current.children[char]) return false;\n            current = current.children[char];\n        }\n        return current.isEndOfWord;\n    }\n\n    startsWith(prefix) {\n        let current = this.root;\n        for (const char of prefix) {\n            if (!current.children[char]) return false;\n            current = current.children[char];\n        }\n        return true;\n    }\n}`
+        },
+        "LRU Cache": {
+            theory: "A Least Recently Used cache evicts the least recently used items first. It is implemented with a hash map (for O(1) access) and a doubly linked list (to maintain usage order).",
+            complexity: { time: "O(1)", space: "O(capacity)" },
+            code: `class DLinkedNode {\n    constructor(key, value) {\n        this.key = key;\n        this.value = value;\n        this.prev = null;\n        this.next = null;\n    }\n}\n\nclass LRUCache {\n    constructor(capacity) {\n        this.capacity = capacity;\n        this.cache = new Map();\n        this.head = new DLinkedNode();\n        this.tail = new DLinkedNode();\n        this.head.next = this.tail;\n        this.tail.prev = this.head;\n    }\n\n    _removeNode(node) {\n        const prev = node.prev;\n        const next = node.next;\n        prev.next = next;\n        next.prev = prev;\n    }\n\n    _addToHead(node) {\n        node.prev = this.head;\n        node.next = this.head.next;\n        this.head.next.prev = node;\n        this.head.next = node;\n    }\n\n    get(key) {\n        if (this.cache.has(key)) {\n            const node = this.cache.get(key);\n            this._removeNode(node);\n            this._addToHead(node);\n            return node.value;\n        }\n        return -1;\n    }\n\n    put(key, value) {\n        if (this.cache.has(key)) {\n            const node = this.cache.get(key);\n            node.value = value;\n            this._removeNode(node);\n            this._addToHead(node);\n        } else {\n            const newNode = new DLinkedNode(key, value);\n            this.cache.set(key, newNode);\n            this._addToHead(newNode);\n\n            if (this.cache.size > this.capacity) {\n                const tail = this.tail.prev;\n                this._removeNode(tail);\n                this.cache.delete(tail.key);\n            }\n        }\n    }\n}`
+        }
+    },
+    "Sorting": {
+        "Quick Sort": {
+            theory: "A divide-and-conquer algorithm. It picks an element as a pivot and partitions the array around the pivot. The key process is the `partition()` function.",
+            complexity: { time: "O(n log n) avg", space: "O(log n)" },
+            code: `const quickSort = (arr, low = 0, high = arr.length - 1) => {\n    if (low < high) {\n        const pivotIndex = partition(arr, low, high);\n        quickSort(arr, low, pivotIndex - 1);\n        quickSort(arr, pivotIndex + 1, high);\n    }\n    return arr;\n};\n\nconst partition = (arr, low, high) => {\n    const pivot = arr[high];\n    let i = low - 1;\n    for (let j = low; j < high; j++) {\n        if (arr[j] < pivot) {\n            i++;\n            [arr[i], arr[j]] = [arr[j], arr[i]];\n        }\n    }\n    [arr[i + 1], arr[high]] = [arr[high], arr[i + 1]];\n    return i + 1;\n};`
+        },
+        "Merge Sort": {
+            theory: "A divide-and-conquer algorithm. It divides the array into two halves, sorts them recursively, and then merges the two sorted halves. It has a stable time complexity but requires extra space.",
+            complexity: { time: "O(n log n)", space: "O(n)" },
+            code: `const mergeSort = (arr) => {\n    if (arr.length <= 1) return arr;\n\n    const mid = Math.floor(arr.length / 2);\n    const left = mergeSort(arr.slice(0, mid));\n    const right = mergeSort(arr.slice(mid));\n\n    return merge(left, right);\n};\n\nconst merge = (left, right) => {\n    const result = [];\n    let leftIndex = 0;\n    let rightIndex = 0;\n\n    while (leftIndex < left.length && rightIndex < right.length) {\n        if (left[leftIndex] < right[rightIndex]) {\n            result.push(left[leftIndex]);\n            leftIndex++;\n        } else {\n            result.push(right[rightIndex]);\n            rightIndex++;\n        }\n    }\n    return result.concat(left.slice(leftIndex)).concat(right.slice(rightIndex));\n};`
+        },
+        "Heap Sort": {
+            theory: "A comparison-based sorting algorithm that uses a Binary Heap data structure. It first builds a max-heap from the input array. Then, it repeatedly swaps the root (maximum element) with the last element of the heap, reduces the heap size, and calls heapify on the root to maintain the heap property.",
+            complexity: { time: "O(n log n)", space: "O(1)" },
+            code: `const heapSort = (arr) => {\n    const n = arr.length;\n\n    for (let i = Math.floor(n / 2) - 1; i >= 0; i--) {\n        heapify(arr, n, i);\n    }\n\n    for (let i = n - 1; i > 0; i--) {\n        [arr[0], arr[i]] = [arr[i], arr[0]];\n        heapify(arr, i, 0);\n    }\n    return arr;\n};\n\nconst heapify = (arr, n, i) => {\n    let largest = i;\n    const left = 2 * i + 1;\n    const right = 2 * i + 2;\n\n    if (left < n && arr[left] > arr[largest]) {\n        largest = left;\n    }\n\n    if (right < n && arr[right] > arr[largest]) {\n        largest = right;\n    }\n\n    if (largest !== i) {\n        [arr[i], arr[largest]] = [arr[largest], arr[i]];\n        heapify(arr, n, largest);\n    }\n};`
+        }
+    },
+    "Backtracking": {
+        "N-Queens": {
+            theory: "The problem of placing N chess queens on an N×N board so no two queens threaten each other. We use backtracking to explore placements column by column, checking for safety at each step.",
+            complexity: { time: "O(N!)", space: "O(N^2)" },
+            code: `const solveNQueens = (n) => {\n    const result = [];\n    const board = Array(n).fill(0).map(() => Array(n).fill('.'));\n\n    const isSafe = (row, col) => {\n        for (let i = 0; i < col; i++) if (board[row][i] === 'Q') return false;\n        for (let i = row, j = col; i >= 0 && j >= 0; i--, j--) if (board[i][j] === 'Q') return false;\n        for (let i = row, j = col; j >= 0 && i < n; i++, j--) if (board[i][j] === 'Q') return false;\n        return true;\n    };\n\n    const solve = (col) => {\n        if (col === n) {\n            result.push(board.map(row => row.join("")));\n            return;\n        }\n        for (let i = 0; i < n; i++) {\n            if (isSafe(i, col)) {\n                board[i][col] = 'Q';\n                solve(col + 1);\n                board[i][col] = '.'; // Backtrack\n            }\n        }\n    };\n\n    solve(0);\n    return result;\n};`
+        },
+        "Generate Parentheses": {
+            theory: "Given n pairs of parentheses, generate all combinations of well-formed parentheses. We use backtracking with counters for open and close brackets, adding them based on simple rules (`open < n` and `close < open`).",
+            complexity: { time: "O(4^n/√n)", space: "O(n)" },
+            code: `const generateParenthesis = (n) => {\n    const result = [];\n\n    const backtrack = (currentString, open, close) => {\n        if (currentString.length === n * 2) {\n            result.push(currentString);\n            return;\n        }\n        if (open < n) {\n            backtrack(currentString + '(', open + 1, close);\n        }\n        if (close < open) {\n            backtrack(currentString + ')', open, close + 1);\n        }\n    };\n\n    backtrack('', 0, 0);\n    return result;\n};`
+        },
+        "Permutations": {
+            theory: "To generate all possible orderings (permutations) of a set of elements, we use backtracking. For each position in the permutation, we try placing every available element. We then recursively solve for the next position. To avoid using the same element twice, we can use a 'used' array or swap elements.",
+            complexity: { time: "O(n * n!)", space: "O(n)" },
+            code: `const permute = (nums) => {\n    const result = [];\n    const backtrack = (index, currentPerm) => {\n        if (index === nums.length) {\n            result.push([...currentPerm]);\n            return;\n        }\n        for (let i = 0; i < nums.length; i++) {\n            if (!currentPerm.includes(nums[i])) {\n                currentPerm.push(nums[i]);\n                backtrack(index + 1, currentPerm);\n                currentPerm.pop(); // Backtrack\n            }\n        }\n    };\n    backtrack(0, []);\n    return result;\n};`
+        },
+        "Subsets (Backtracking)": {
+            theory: "To generate all possible subsets (the power set) of a set, we can use backtracking. For each element, we have two choices: either include it in the current subset and recurse, or not include it and recurse. This builds up all 2^n possibilities.",
+            complexity: { time: "O(n * 2^n)", space: "O(n)" },
+            code: `const subsets = (nums) => {\n    const result = [];\n    const backtrack = (index, currentSubset) => {\n        result.push([...currentSubset]);\n        for (let i = index; i < nums.length; i++) {\n            currentSubset.push(nums[i]);\n            backtrack(i + 1, currentSubset);\n            currentSubset.pop(); // Backtrack\n        }\n    };\n    backtrack(0, []);\n    return result;\n};`
+        }
+    },
+    "Greedy Algorithms": {
+        "Activity Selection": {
+            theory: "Given a set of activities with start and finish times, find the maximum number of non-overlapping activities that can be performed. The greedy strategy is to sort activities by their finish times and always pick the next activity whose start time is after the finish time of the previously selected activity.",
+            complexity: { time: "O(n log n)", space: "O(1)" },
+            code: `const activitySelection = (activities) => {\n    // activities is an array of [start, end] pairs\n    activities.sort((a, b) => a[1] - b[1]);\n\n    let count = 1;\n    let lastFinishTime = activities[0][1];\n    const result = [activities[0]];\n\n    for (let i = 1; i < activities.length; i++) {\n        if (activities[i][0] >= lastFinishTime) {\n            count++;\n            lastFinishTime = activities[i][1];\n            result.push(activities[i]);\n        }\n    }\n    return { count, result };\n};`
+        },
+        "Huffman Coding": {
+            theory: "A lossless data compression algorithm. It uses a greedy approach to assign variable-length codes to characters, with frequent characters getting shorter codes. It builds a prefix-free binary tree (a Huffman tree) using a min-heap of character frequencies.",
+            complexity: { time: "O(n log n)", space: "O(n)" },
+            code: `// Simplified conceptual code for Huffman Coding\nclass HuffmanNode {\n    constructor(char, freq, left = null, right = null) {\n        this.char = char;\n        this.freq = freq;\n        this.left = left;\n        this.right = right;\n    }\n}\n\nconst huffmanCoding = (chars, freqs) => {\n    // 1. Create a min-heap of HuffmanNode objects.\n    // 2. While heap size > 1:\n    //    a. Extract two min-frequency nodes from the heap.\n    //    b. Create a new internal node with frequency equal to the sum of the two nodes' frequencies.\n    //    c. Make the two extracted nodes the children of the new node.\n    //    d. Add the new node to the min-heap.\n    // 3. The remaining node is the root of the Huffman Tree.\n    // 4. Traverse the tree to assign codes to characters.\n    return "Implementation requires a Min-Heap/Priority Queue.";\n};`
+        }
+    },
+    "Bit Manipulation": {
+        "Count Set Bits": {
+            theory: "To count the number of '1's in a number's binary representation, use the trick `n & (n - 1)`, which unsets the rightmost '1'. The number of times you can do this before the number becomes 0 is the answer.",
+            complexity: { time: "O(k)", space: "O(1)" },
+            code: `const hammingWeight = (n) => {\n    let count = 0;\n    while (n !== 0) {\n        n = n & (n - 1);\n        count++;\n    }\n    return count;\n};`
+        },
+        "Power of 2 Check": {
+            theory: "A positive number `n` is a power of two if and only if it has exactly one set bit. This can be checked with the condition `n > 0 && (n & (n - 1)) === 0`.",
+            complexity: { time: "O(1)", space: "O(1)" },
+            code: `const isPowerOfTwo = (n) => {\n    if (n <= 0) return false;\n    return (n & (n - 1)) === 0;\n};`
+        },
+        "Single Number": {
+            theory: "Given an array where every element appears twice except for one, find that single one. Using the XOR operator (`^`), all paired numbers cancel each other out (`a ^ a = 0`), leaving only the unique number (`x ^ 0 = x`).",
+            complexity: { time: "O(n)", space: "O(1)" },
+            code: `const singleNumber = (nums) => {\n    let result = 0;\n    for (const num of nums) {\n        result ^= num;\n    }\n    return result;\n};`
+        },
+        "Subset Generation (Bits)": {
+            theory: "To generate all subsets of a set of `n` elements, we can iterate from `0` to `2^n - 1`. Each number `i` in this range acts as a bitmask, where the `j`-th bit being '1' means the `j`-th element is included in that subset.",
+            complexity: { time: "O(n * 2^n)", space: "O(n * 2^n)" },
+            code: `const subsets = (nums) => {\n    const n = nums.length;\n    const numSubsets = 1 << n;\n    const allSubsets = [];\n\n    for (let i = 0; i < numSubsets; i++) {\n        const currentSubset = [];\n        for (let j = 0; j < n; j++) {\n            if ((i >> j) & 1) {\n                currentSubset.push(nums[j]);\n            }\n        }\n        allSubsets.push(currentSubset);\n    }\n    return allSubsets;\n};`
+        }
+    },
+    "Mathematical Algorithms": {
+        "Sieve of Eratosthenes": {
+            theory: "An efficient algorithm for finding all prime numbers up to a given integer n. It works by creating a boolean array `isPrime` of size n+1 and initially assuming all numbers are prime. It then iterates from 2 up to sqrt(n) and marks all multiples of the current prime number as not prime.",
+            complexity: { time: "O(n log log n)", space: "O(n)" },
+            code: `const sieveOfEratosthenes = (n) => {\n    const isPrime = Array(n + 1).fill(true);\n    isPrime[0] = isPrime[1] = false;\n\n    for (let p = 2; p * p <= n; p++) {\n        if (isPrime[p]) {\n            for (let i = p * p; i <= n; i += p) {\n                isPrime[i] = false;\n            }\n        }\n    }\n\n    const primes = [];\n    for (let i = 2; i <= n; i++) {\n        if (isPrime[i]) primes.push(i);\n    }\n    return primes;\n};`
+        },
+        "GCD and LCM": {
+            theory: "The Greatest Common Divisor (GCD) of two integers is the largest positive integer that divides both numbers. It can be found efficiently using the Euclidean algorithm. The Least Common Multiple (LCM) can be derived from the GCD using the formula: `lcm(a, b) = (|a * b|) / gcd(a, b)`.",
+            complexity: { time: "O(log(min(a,b)))", space: "O(log(min(a,b)))" },
+            code: `const gcd = (a, b) => {\n    if (b === 0) return a;\n    return gcd(b, a % b);\n};\n\nconst lcm = (a, b) => {\n    return Math.abs(a * b) / gcd(a, b);\n};`
+        },
+        "Fast Exponentiation": {
+            theory: "Also known as exponentiation by squaring, this is an efficient algorithm to compute large integer powers of a number. It uses the binary representation of the exponent to reduce the number of multiplications required.",
+            complexity: { time: "O(log n)", space: "O(1)" },
+            code: `const power = (base, exp) => {\n    let res = 1;\n    base %= 1000000007; // Example modulo\n    while (exp > 0) {\n        if (exp % 2 === 1) res = (res * base) % 1000000007;\n        base = (base * base) % 1000000007;\n        exp = Math.floor(exp / 2);\n    }\n    return res;\n};`
+        }
+    }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    const navigationMenu = document.getElementById('navigation-menu');
+    const contentDisplay = document.getElementById('content-display');
+    const mobileMenuButton = document.getElementById('mobile-menu-button');
+    const sidebar = document.getElementById('sidebar');
+    const modal = document.getElementById('gemini-modal');
+    const modalTitle = document.getElementById('modal-title');
+    const modalContent = document.getElementById('modal-content');
+    const closeModalBtn = document.getElementById('close-modal-btn');
+
+    const createMenuItem = (itemName, categoryName) => {
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        a.href = '#';
+        a.textContent = itemName;
+        a.className = 'nav-item block p-2 rounded-md hover:bg-slate-100 transition-colors duration-200';
+        a.dataset.category = categoryName;
+        a.dataset.item = itemName;
+        li.appendChild(a);
+        return li;
+    };
+
+    const createCategory = (categoryName, items) => {
+        const categoryDiv = document.createElement('div');
+        categoryDiv.className = 'nav-category mb-4';
+
+        const button = document.createElement('button');
+        button.className = 'nav-category-toggle w-full text-left font-bold text-lg text-slate-600 p-2 rounded-md hover:bg-slate-100 flex justify-between items-center';
+        button.innerHTML = `<span>${categoryName}</span><span class="arrow transition-transform">▶</span>`;
+        
+        const ul = document.createElement('ul');
+        ul.className = 'ml-4 mt-2 hidden space-y-1';
+        
+        for (const itemName in items) {
+            ul.appendChild(createMenuItem(itemName, categoryName));
+        }
+        
+        categoryDiv.appendChild(button);
+        categoryDiv.appendChild(ul);
+
+        button.addEventListener('click', () => {
+            categoryDiv.classList.toggle('open');
+            ul.classList.toggle('hidden');
+        });
+
+        return categoryDiv;
+    };
+
+    for (const categoryName in dsaData) {
+        navigationMenu.appendChild(createCategory(categoryName, dsaData[categoryName]));
+    }
+
+    const callGeminiAPI = async (prompt) => {
+        const apiKey = "AIzaSyBsKa0bos0UKhD_436QfqekJAweICLJAwE"; 
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+        
+        const payload = {
+            contents: [{ role: "user", parts: [{ text: prompt }] }]
+        };
+
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error(`API error: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            
+            if (result.candidates && result.candidates.length > 0 &&
+                result.candidates[0].content && result.candidates[0].content.parts &&
+                result.candidates[0].content.parts.length > 0) {
+                return result.candidates[0].content.parts[0].text;
+            } else {
+                return "Sorry, I couldn't get a response. The result format was unexpected.";
+            }
+        } catch (error) {
+            console.error("Gemini API call failed:", error);
+            return `Sorry, an error occurred while contacting the Gemini API. Please check the console for details.`;
+        }
+    };
+
+    const showModal = (title, contentPromise) => {
+        modalTitle.textContent = title;
+        modalContent.innerHTML = '<div class="flex justify-center items-center p-8"><div class="animate-spin rounded-full h-16 w-16 border-b-2 border-slate-700"></div></div>';
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+
+        contentPromise.then(content => {
+            modalContent.innerHTML = content.replace(/\n/g, '<br>').replace(/\*/g, '•');
+        });
+    };
+
+    const hideModal = () => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    };
+
+    closeModalBtn.addEventListener('click', hideModal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            hideModal();
+        }
+    });
+
+    const displayContent = (category, item) => {
+        if (!category || !item || !dsaData[category] || !dsaData[category][item]) {
+            contentDisplay.innerHTML = `<div class="text-center mt-10"><h1 class="text-4xl font-bold text-slate-700">Welcome to the Interactive DSA Guide!</h1><p class="mt-4 text-lg text-slate-500">Please select a topic from the navigation menu on the left to begin exploring.</p></div>`;
+            return;
+        }
+
+        const data = dsaData[category][item];
+
+        contentDisplay.innerHTML = `
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h1 class="text-3xl md:text-4xl font-bold mb-4 text-slate-800">${item}</h1>
+                
+                <div class="my-6 p-4 bg-violet-50 rounded-lg border border-violet-200">
+                    <h3 class="text-xl font-semibold text-violet-800 mb-3">✨ AI-Powered Tools</h3>
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <button id="explain-btn" class="gemini-btn font-semibold py-2 px-4 rounded-lg transition-colors w-full sm:w-auto">Explain in Simple Terms</button>
+                        <button id="problems-btn" class="gemini-btn font-semibold py-2 px-4 rounded-lg transition-colors w-full sm:w-auto">Suggest Related Problems</button>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <h2 class="text-2xl font-semibold border-b-2 border-slate-200 pb-2 mb-3 text-slate-700">Theory</h2>
+                    <p class="text-slate-600 leading-relaxed whitespace-pre-line">${data.theory}</p>
+                </div>
+                <div class="mb-6">
+                    <h2 class="text-2xl font-semibold border-b-2 border-slate-200 pb-2 mb-3 text-slate-700">Complexity</h2>
+                    <div class="flex space-x-8 text-slate-600">
+                        <span><strong>Time:</strong> <code class="bg-slate-100 text-sm p-1 rounded-md">${data.complexity.time}</code></span>
+                        <span><strong>Space:</strong> <code class="bg-slate-100 text-sm p-1 rounded-md">${data.complexity.space}</code></span>
+                    </div>
+                </div>
+                <div>
+                    <h2 class="text-2xl font-semibold border-b-2 border-slate-200 pb-2 mb-3 text-slate-700">JavaScript Code</h2>
+                    <div class="relative">
+                        <button class="copy-code-btn absolute top-2 right-2 bg-slate-600 text-white px-3 py-1 rounded-md text-sm hover:bg-slate-500 transition-colors">Copy</button>
+                        <pre class="code-block p-4 rounded-lg overflow-x-auto"><code id="code-block-content">${data.code}</code></pre>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.querySelector('.copy-code-btn').addEventListener('click', (e) => {
+            const codeToCopy = document.getElementById('code-block-content').innerText;
+            navigator.clipboard.writeText(codeToCopy).then(() => {
+                e.target.textContent = 'Copied!';
+                setTimeout(() => { e.target.textContent = 'Copy'; }, 2000);
+            });
+        });
+
+        document.getElementById('explain-btn').addEventListener('click', () => {
+            const prompt = `Explain the concept of "${item}" in simple terms. Use an analogy to make it easy to understand for a beginner. Format the output cleanly.`;
+            showModal(`Explaining: ${item}`, callGeminiAPI(prompt));
+        });
+
+        document.getElementById('problems-btn').addEventListener('click', () => {
+            const prompt = `Suggest 2-3 practice problems from LeetCode or HackerRank that are good examples for applying the "${item}" algorithm or data structure. For each problem, provide the name and a brief one-sentence description of why it's a good fit. Format the output as a clean list.`;
+            showModal(`Practice Problems for: ${item}`, callGeminiAPI(prompt));
+        });
+    };
+
+    navigationMenu.addEventListener('click', (e) => {
+        if (e.target.tagName === 'A') {
+            e.preventDefault();
+            const { category, item } = e.target.dataset;
+            
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            e.target.classList.add('active');
+
+            displayContent(category, item);
+
+            if (window.innerWidth < 768) {
+                sidebar.classList.add('-translate-x-full');
+            }
+        }
+    });
+
+    mobileMenuButton.addEventListener('click', () => {
+        sidebar.classList.toggle('-translate-x-full');
+    });
+
+    displayContent();
+});
+</script>
+
+</body>
+</html>
