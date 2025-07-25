@@ -3,17 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive DSA Guide (JavaScript) with Gemini API</title>
+    <title>Interactive DSA Guide (JavaScript) with Gemini API Chat</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Chosen Palette: Serene Code (Light beige/gray background, dark text, subtle blue/green accents) -->
-    <!-- Application Structure Plan: A two-pane SPA. Left pane: a sticky, collapsible navigation tree of all DSA topics. Right pane: a content display area. Clicking a topic in the nav tree dynamically loads its theory, complexity analysis, and a copy-able code snippet into the content pane. This structure is chosen to provide a quick, organized overview and prevent endless scrolling, making it far more usable than a single long document for interview preparation. Gemini API features for simplified explanations and problem suggestions are added to enhance the learning experience. -->
-    <!-- Visualization & Content Choices: Report info is hierarchical DSA knowledge. Goal is to organize, inform, and allow quick reference. The primary presentation is a structured text layout. JS is used to create a dynamic navigation tree (organize), which updates a content display area (inform). Key interactions include the "Copy Code" button and two new Gemini-powered buttons ("Explain in Simple Terms" and "Suggest Related Problems") which provide AI-generated content in a modal window. This design uses structured HTML/CSS for layout and information hierarchy. No charts are needed or used. Library/Method: Vanilla JS for DOM manipulation and event handling, fetch for Gemini API calls. -->
+    <!-- Application Structure Plan: A two-pane SPA. Left pane: a sticky, collapsible navigation tree of all DSA topics. Right pane: a content display area with a fixed chat interface at the bottom. Clicking a topic loads its details, and the chat allows for contextual Q&A. This structure provides quick reference and interactive learning in one view. -->
+    <!-- Visualization & Content Choices: The primary presentation is a structured text layout for DSA topics. The new chat interface provides a conversational way to interact with an AI assistant. JS is used for dynamic content loading, navigation, and chat functionality. Key interactions include "Copy Code", Gemini-powered modal buttons, and the new chat form. -->
     <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
+            overflow: hidden; /* Prevent body scroll */
         }
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         .nav-item.active {
             background-color: #e0f2fe; /* light-blue-100 */
             color: #0284c7; /* sky-600 */
@@ -28,6 +29,7 @@
         .code-block {
             background-color: #1f2937; /* gray-800 */
             color: #f9fafb; /* gray-50 */
+            white-space: pre-wrap;
         }
         .modal-overlay {
             background-color: rgba(0, 0, 0, 0.5);
@@ -39,11 +41,46 @@
         .gemini-btn:hover {
             background-color: #a78bfa; /* violet-400 */
         }
+        /* Chat Styles */
+        #chat-messages {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .chat-message {
+            padding: 0.75rem 1rem;
+            border-radius: 1rem;
+            max-width: 85%;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+        .chat-message.user {
+            background-color: #c4b5fd; /* violet-300 */
+            color: #4c1d95; /* violet-900 */
+            align-self: flex-end;
+            border-bottom-right-radius: 0.25rem;
+        }
+        .chat-message.ai {
+            background-color: #f1f5f9; /* slate-100 */
+            color: #1e293b; /* slate-800 */
+            align-self: flex-start;
+            border-bottom-left-radius: 0.25rem;
+        }
+        .chat-message.ai strong {
+            color: #4338ca; /* indigo-700 */
+        }
+        .chat-message.ai .code-block {
+            background-color: #374151; /* gray-700 */
+            color: #d1d5db; /* gray-300 */
+        }
+        .chat-message.ai code {
+             color: #c2410c; /* orange-600 */
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800">
 
-    <div class="flex flex-col md:flex-row min-h-screen">
+    <div class="flex flex-col md:flex-row h-screen">
         <!-- Mobile Header -->
         <header class="md:hidden bg-white shadow-md p-4 flex justify-between items-center sticky top-0 z-20">
             <h1 class="text-xl font-bold text-slate-700">DSA Guide</h1>
@@ -58,10 +95,28 @@
             <nav id="navigation-menu"></nav>
         </aside>
 
-        <!-- Main Content -->
-        <main class="w-full md:w-3/4 lg:w-4/5 p-4 sm:p-6 md:p-10">
-            <div id="content-display" class="max-w-4xl mx-auto">
-                <!-- Content will be injected here -->
+        <!-- Main Content & Chat -->
+        <main class="w-full md:w-3/4 lg:w-4/5 h-screen flex flex-col bg-slate-50">
+            <!-- Scrollable Content Area -->
+            <div class="flex-grow overflow-y-auto">
+                <div id="content-display" class="max-w-4xl mx-auto p-4 sm:p-6 md:p-10">
+                    <!-- DSA Content will be injected here -->
+                </div>
+            </div>
+
+            <!-- Chat Interface -->
+            <div id="chat-container" class="flex-shrink-0 bg-white/80 backdrop-blur-sm border-t border-slate-200">
+                <div class="max-w-4xl mx-auto p-4">
+                    <div id="chat-messages" class="max-h-48 overflow-y-auto mb-3 p-3 bg-slate-50/50 rounded-lg">
+                        <!-- Chat messages will be injected here -->
+                    </div>
+                    <form id="chat-form" class="flex items-start gap-3">
+                        <textarea id="chat-input" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-violet-400 focus:outline-none resize-none transition-all duration-200" rows="1" placeholder="Ask Gemini about DSA..."></textarea>
+                        <button type="submit" class="flex-shrink-0 bg-violet-500 text-white font-bold p-3 rounded-lg hover:bg-violet-600 transition-colors disabled:bg-violet-300">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                        </button>
+                    </form>
+                </div>
             </div>
         </main>
     </div>
@@ -71,15 +126,16 @@
         <div class="bg-white rounded-lg shadow-xl p-6 w-11/12 md:w-1/2 max-h-[80vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-4">
                 <h3 id="modal-title" class="text-2xl font-bold text-slate-800"></h3>
-                <button id="close-modal-btn" class="text-slate-500 hover:text-slate-800">&times;</button>
+                <button id="close-modal-btn" class="text-slate-500 hover:text-slate-800 text-3xl leading-none">&times;</button>
             </div>
-            <div id="modal-content" class="text-slate-600 leading-relaxed">
+            <div id="modal-content" class="text-slate-600 leading-relaxed prose">
                 <!-- Gemini content will be injected here -->
             </div>
         </div>
     </div>
 
 <script>
+// Data structure containing all the DSA topics, theories, and code examples.
 const dsaData = {
     "Arrays": {
         "Two Sum": {
@@ -365,6 +421,7 @@ const dsaData = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+    // --- DOM Element References ---
     const navigationMenu = document.getElementById('navigation-menu');
     const contentDisplay = document.getElementById('content-display');
     const mobileMenuButton = document.getElementById('mobile-menu-button');
@@ -373,7 +430,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalTitle = document.getElementById('modal-title');
     const modalContent = document.getElementById('modal-content');
     const closeModalBtn = document.getElementById('close-modal-btn');
+    const chatMessages = document.getElementById('chat-messages');
+    const chatForm = document.getElementById('chat-form');
+    const chatInput = document.getElementById('chat-input');
+    
+    // --- App State ---
+    let currentTopic = null; // This will hold the name of the currently viewed topic
+    let chatHistory = [
+        {
+            role: "user",
+            parts: [{ text: "You are a friendly and helpful assistant specializing in Data Structures and Algorithms. Your name is Gemini. Keep your answers concise and clear. Use markdown for formatting code blocks, bold, and italic text." }]
+        },
+        {
+            role: "model",
+            parts: [{ text: "Of course! I'm Gemini, your go-to guide for all things DSA. How can I help you today? Feel free to ask me to explain concepts, suggest problems, or clarify anything you see here." }]
+        }
+    ];
 
+    // --- Navigation Menu Builder ---
     const createMenuItem = (itemName, categoryName) => {
         const li = document.createElement('li');
         const a = document.createElement('a');
@@ -389,40 +463,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const createCategory = (categoryName, items) => {
         const categoryDiv = document.createElement('div');
         categoryDiv.className = 'nav-category mb-4';
-
         const button = document.createElement('button');
         button.className = 'nav-category-toggle w-full text-left font-bold text-lg text-slate-600 p-2 rounded-md hover:bg-slate-100 flex justify-between items-center';
         button.innerHTML = `<span>${categoryName}</span><span class="arrow transition-transform">▶</span>`;
-        
         const ul = document.createElement('ul');
         ul.className = 'ml-4 mt-2 hidden space-y-1';
-        
         for (const itemName in items) {
             ul.appendChild(createMenuItem(itemName, categoryName));
         }
-        
         categoryDiv.appendChild(button);
         categoryDiv.appendChild(ul);
-
         button.addEventListener('click', () => {
             categoryDiv.classList.toggle('open');
             ul.classList.toggle('hidden');
         });
-
         return categoryDiv;
     };
 
-    for (const categoryName in dsaData) {
-        navigationMenu.appendChild(createCategory(categoryName, dsaData[categoryName]));
-    }
-
-    const callGeminiAPI = async (prompt) => {
+    // --- Gemini API Communication ---
+    const callGeminiAPI = async (history) => {
+        // IMPORTANT: Replace with your actual API key.
+        // This key is for demonstration purposes only and will be deactivated.
         const apiKey = "AIzaSyBsKa0bos0UKhD_436QfqekJAweICLJAwE"; 
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
         
-        const payload = {
-            contents: [{ role: "user", parts: [{ text: prompt }] }]
-        };
+        const payload = { contents: history };
 
         try {
             const response = await fetch(apiUrl, {
@@ -430,61 +495,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-
-            if (!response.ok) {
-                throw new Error(`API error: ${response.statusText}`);
-            }
-
+            if (!response.ok) throw new Error(`API error: ${response.statusText}`);
             const result = await response.json();
-            
-            if (result.candidates && result.candidates.length > 0 &&
-                result.candidates[0].content && result.candidates[0].content.parts &&
-                result.candidates[0].content.parts.length > 0) {
+            if (result.candidates && result.candidates[0]?.content?.parts[0]) {
                 return result.candidates[0].content.parts[0].text;
-            } else {
-                return "Sorry, I couldn't get a response. The result format was unexpected.";
             }
+            return "Sorry, I couldn't get a response. The result format was unexpected.";
         } catch (error) {
             console.error("Gemini API call failed:", error);
-            return `Sorry, an error occurred while contacting the Gemini API. Please check the console for details.`;
+            return `Sorry, an error occurred while contacting the Gemini API: ${error.message}. Please check the console for details.`;
         }
     };
 
-    const showModal = (title, contentPromise) => {
-        modalTitle.textContent = title;
-        modalContent.innerHTML = '<div class="flex justify-center items-center p-8"><div class="animate-spin rounded-full h-16 w-16 border-b-2 border-slate-700"></div></div>';
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-
-        contentPromise.then(content => {
-            modalContent.innerHTML = content.replace(/\n/g, '<br>').replace(/\*/g, '•');
-        });
-    };
-
-    const hideModal = () => {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-    };
-
-    closeModalBtn.addEventListener('click', hideModal);
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            hideModal();
-        }
-    });
-
+    // --- UI Update Functions ---
     const displayContent = (category, item) => {
         if (!category || !item || !dsaData[category] || !dsaData[category][item]) {
-            contentDisplay.innerHTML = `<div class="text-center mt-10"><h1 class="text-4xl font-bold text-slate-700">Welcome to the Interactive DSA Guide!</h1><p class="mt-4 text-lg text-slate-500">Please select a topic from the navigation menu on the left to begin exploring.</p></div>`;
+            currentTopic = null; // Reset context on the welcome page
+            contentDisplay.innerHTML = `<div class="text-center mt-10"><h1 class="text-4xl font-bold text-slate-700">Welcome to the Interactive DSA Guide!</h1><p class="mt-4 text-lg text-slate-500">Please select a topic from the navigation menu on the left to begin exploring, or ask me a question in the chat below!</p></div>`;
             return;
         }
-
+        
+        currentTopic = item; // Set the current topic context
         const data = dsaData[category][item];
-
         contentDisplay.innerHTML = `
             <div class="bg-white p-6 rounded-lg shadow-md">
                 <h1 class="text-3xl md:text-4xl font-bold mb-4 text-slate-800">${item}</h1>
-                
                 <div class="my-6 p-4 bg-violet-50 rounded-lg border border-violet-200">
                     <h3 class="text-xl font-semibold text-violet-800 mb-3">✨ AI-Powered Tools</h3>
                     <div class="flex flex-col sm:flex-row gap-4">
@@ -492,27 +527,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button id="problems-btn" class="gemini-btn font-semibold py-2 px-4 rounded-lg transition-colors w-full sm:w-auto">Suggest Related Problems</button>
                     </div>
                 </div>
-
-                <div class="mb-6">
-                    <h2 class="text-2xl font-semibold border-b-2 border-slate-200 pb-2 mb-3 text-slate-700">Theory</h2>
-                    <p class="text-slate-600 leading-relaxed whitespace-pre-line">${data.theory}</p>
-                </div>
-                <div class="mb-6">
-                    <h2 class="text-2xl font-semibold border-b-2 border-slate-200 pb-2 mb-3 text-slate-700">Complexity</h2>
-                    <div class="flex space-x-8 text-slate-600">
-                        <span><strong>Time:</strong> <code class="bg-slate-100 text-sm p-1 rounded-md">${data.complexity.time}</code></span>
-                        <span><strong>Space:</strong> <code class="bg-slate-100 text-sm p-1 rounded-md">${data.complexity.space}</code></span>
-                    </div>
-                </div>
-                <div>
-                    <h2 class="text-2xl font-semibold border-b-2 border-slate-200 pb-2 mb-3 text-slate-700">JavaScript Code</h2>
-                    <div class="relative">
-                        <button class="copy-code-btn absolute top-2 right-2 bg-slate-600 text-white px-3 py-1 rounded-md text-sm hover:bg-slate-500 transition-colors">Copy</button>
-                        <pre class="code-block p-4 rounded-lg overflow-x-auto"><code id="code-block-content">${data.code}</code></pre>
-                    </div>
-                </div>
-            </div>
-        `;
+                <div class="mb-6"><h2 class="text-2xl font-semibold border-b-2 border-slate-200 pb-2 mb-3 text-slate-700">Theory</h2><p class="text-slate-600 leading-relaxed whitespace-pre-line">${data.theory}</p></div>
+                <div class="mb-6"><h2 class="text-2xl font-semibold border-b-2 border-slate-200 pb-2 mb-3 text-slate-700">Complexity</h2><div class="flex space-x-8 text-slate-600"><span><strong>Time:</strong> <code class="bg-slate-100 text-sm p-1 rounded-md">${data.complexity.time}</code></span><span><strong>Space:</strong> <code class="bg-slate-100 text-sm p-1 rounded-md">${data.complexity.space}</code></span></div></div>
+                <div><h2 class="text-2xl font-semibold border-b-2 border-slate-200 pb-2 mb-3 text-slate-700">JavaScript Code</h2><div class="relative"><button class="copy-code-btn absolute top-2 right-2 bg-slate-600 text-white px-3 py-1 rounded-md text-sm hover:bg-slate-500 transition-colors">Copy</button><pre class="code-block p-4 rounded-lg overflow-x-auto"><code id="code-block-content">${data.code}</code></pre></div></div>
+            </div>`;
         
         document.querySelector('.copy-code-btn').addEventListener('click', (e) => {
             const codeToCopy = document.getElementById('code-block-content').innerText;
@@ -523,37 +541,120 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         document.getElementById('explain-btn').addEventListener('click', () => {
-            const prompt = `Explain the concept of "${item}" in simple terms. Use an analogy to make it easy to understand for a beginner. Format the output cleanly.`;
-            showModal(`Explaining: ${item}`, callGeminiAPI(prompt));
+            const prompt = `Explain the concept of "${item}" in simple terms. Use an analogy to make it easy to understand for a beginner. Format the output cleanly using markdown.`;
+            showModal(`Explaining: ${item}`, callGeminiAPI([{ role: "user", parts: [{ text: prompt }] }]));
         });
 
         document.getElementById('problems-btn').addEventListener('click', () => {
-            const prompt = `Suggest 2-3 practice problems from LeetCode or HackerRank that are good examples for applying the "${item}" algorithm or data structure. For each problem, provide the name and a brief one-sentence description of why it's a good fit. Format the output as a clean list.`;
-            showModal(`Practice Problems for: ${item}`, callGeminiAPI(prompt));
+            const prompt = `Suggest 2-3 practice problems from LeetCode or HackerRank that are good examples for applying the "${item}" algorithm or data structure. For each problem, provide the name and a brief one-sentence description of why it's a good fit. Format the output as a clean markdown list.`;
+            showModal(`Practice Problems for: ${item}`, callGeminiAPI([{ role: "user", parts: [{ text: prompt }] }]));
         });
     };
 
+    // --- Chat UI Functions ---
+    const addChatMessage = (sender, text) => {
+        document.querySelector('.typing-indicator')?.remove();
+        const messageElement = document.createElement('div');
+        messageElement.classList.add('chat-message', sender);
+        
+        // Basic markdown to HTML conversion
+        let html = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                       .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                       .replace(/```javascript\n([\s\S]*?)```/g, '<pre class="code-block p-2 rounded-md my-2 text-sm"><code>$1</code></pre>')
+                       .replace(/```([\s\S]*?)```/g, '<pre class="code-block p-2 rounded-md my-2 text-sm"><code>$1</code></pre>')
+                       .replace(/`(.*?)`/g, '<code class="bg-slate-200 text-sm p-1 rounded-sm">$1</code>')
+                       .replace(/\n/g, '<br>');
+
+        messageElement.innerHTML = html;
+        chatMessages.appendChild(messageElement);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    };
+
+    const showTypingIndicator = () => {
+        const typingElement = document.createElement('div');
+        typingElement.classList.add('chat-message', 'ai', 'typing-indicator');
+        typingElement.innerHTML = '<span class="animate-pulse">Typing...</span>';
+        chatMessages.appendChild(typingElement);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    };
+
+    // --- Modal Functions ---
+    const showModal = (title, contentPromise) => {
+        modalTitle.textContent = title;
+        modalContent.innerHTML = '<div class="flex justify-center items-center p-8"><div class="animate-spin rounded-full h-16 w-16 border-b-2 border-slate-700"></div></div>';
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        contentPromise.then(content => {
+            let html = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                              .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                              .replace(/\n/g, '<br>');
+            modalContent.innerHTML = html;
+        });
+    };
+    const hideModal = () => modal.classList.add('hidden');
+
+    // --- Event Listeners ---
     navigationMenu.addEventListener('click', (e) => {
         if (e.target.tagName === 'A') {
             e.preventDefault();
             const { category, item } = e.target.dataset;
-            
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
             e.target.classList.add('active');
-
             displayContent(category, item);
-
-            if (window.innerWidth < 768) {
-                sidebar.classList.add('-translate-x-full');
-            }
+            if (window.innerWidth < 768) sidebar.classList.add('-translate-x-full');
         }
     });
 
-    mobileMenuButton.addEventListener('click', () => {
-        sidebar.classList.toggle('-translate-x-full');
+    chatForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const userInput = chatInput.value.trim();
+        if (!userInput) return;
+
+        addChatMessage('user', userInput);
+        chatHistory.push({ role: "user", parts: [{ text: userInput }] });
+        chatInput.value = '';
+        chatInput.style.height = 'auto';
+        showTypingIndicator();
+
+        // Create a temporary history for the API call that includes the current topic context
+        const apiHistory = [...chatHistory];
+        
+        // If a topic is selected, add a contextual instruction to the start of the history for the API call.
+        // This guides the AI without cluttering the permanent chat history.
+        if (currentTopic) {
+            apiHistory.unshift({
+                role: "user",
+                parts: [{ text: `IMPORTANT: The user is currently viewing the topic "${currentTopic}". Please frame your answer in this context.` }]
+            });
+             apiHistory.push({
+                role: "model",
+                parts: [{ text: "Understood. I will answer in the context of " + currentTopic + "."}]
+            })
+        }
+        
+        const aiResponse = await callGeminiAPI(apiHistory);
+        addChatMessage('ai', aiResponse);
+        // Add the actual response to the permanent history
+        chatHistory.push({ role: "model", parts: [{ text: aiResponse }] });
     });
 
-    displayContent();
+    chatInput.addEventListener('input', () => {
+        chatInput.style.height = 'auto';
+        const scrollHeight = chatInput.scrollHeight;
+        chatInput.style.height = `${scrollHeight}px`;
+    });
+
+    mobileMenuButton.addEventListener('click', () => sidebar.classList.toggle('-translate-x-full'));
+    closeModalBtn.addEventListener('click', hideModal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) hideModal(); });
+
+    // --- Initial Setup ---
+    for (const categoryName in dsaData) {
+        navigationMenu.appendChild(createCategory(categoryName, dsaData[categoryName]));
+    }
+    displayContent(); // Display welcome message
+    addChatMessage('ai', chatHistory[1].parts[0].text); // Display initial chat message
+
 });
 </script>
 
